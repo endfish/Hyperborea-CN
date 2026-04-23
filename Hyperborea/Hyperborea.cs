@@ -65,7 +65,7 @@ public unsafe class Hyperborea : IDalamudPlugin
             EzConfigGui.Init(UI.DrawNeo);
             EzConfigGui.Window.SizeConstraints = constraint;
             EzConfigGui.Window.Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar;
-            EzCmd.Add("/hyper", OnCommand);
+            EzCmd.Add(Strings.Command, OnCommand);
             Memory = new();
             SettingsWindow = new();
             LogWindow = new();
@@ -89,7 +89,7 @@ public unsafe class Hyperborea : IDalamudPlugin
                     FestivalDatas.Add(new()
                     {
                         Id = (int)x.RowId,
-                        Name = $"Unknown {x.RowId}",
+                        Name = Strings.UnknownFestival((int)x.RowId),
                     });
                 }
             }
@@ -228,7 +228,7 @@ public unsafe class Hyperborea : IDalamudPlugin
         }
         else if (arguments.EqualsIgnoreCaseAny("settings", "s"))
         {
-            LogWindow.IsOpen = true;
+            SettingsWindow.IsOpen = true;
         }
         else if (arguments.EqualsIgnoreCaseAny("debug", "d"))
         {

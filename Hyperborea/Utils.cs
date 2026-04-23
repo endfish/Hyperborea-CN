@@ -111,7 +111,7 @@ public unsafe static class Utils
 
     public static string GetWeatherName(uint id)
     {
-        if (id == 0) return "Not defined";
+        if (id == 0) return Strings.NotDefined;
         return Svc.Data.GetExcelSheet<Weather>().GetRowOrDefault((uint)id)?.Name.ToString() ?? $"#{id}";
     }
 
@@ -128,12 +128,12 @@ public unsafe static class Utils
         var ret = true;
         if (!Player.Available)
         {
-            reasons.Add("LocalPlayer Missing (Not logged in");
+            reasons.Add("缺少本地玩家对象（尚未登录）");
             ret = false;
         }
         else if(Svc.Data.GetExcelSheet<TerritoryType>().GetRowOrDefault(Svc.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId != (byte)TerritoryIntendedUseEnum.Inn && !C.DisableInnCheck)
         {
-            reasons.Add("Zone Restriction Active (Must be in an inn room)");
+            reasons.Add($"区域限制生效（必须位于{Strings.InnRoomExample}）");
             ret = false;
         }
         foreach (var cond in Enum.GetValues<ConditionFlag>())

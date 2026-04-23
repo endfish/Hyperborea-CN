@@ -5,22 +5,22 @@ using Lumina.Excel.Sheets;
 namespace Hyperborea.Gui;
 public class SettingsWindow : Window
 {
-    public SettingsWindow() : base("Hyperborea settings")
+    public SettingsWindow() : base(Strings.SettingsWindowTitle)
     {
         EzConfigGui.WindowSystem.AddWindow(this);
     }
 
     public override void Draw()
     {
-        if (ImGuiGroup.BeginGroupBox("General settings"))
+        if (ImGuiGroup.BeginGroupBox("常规设置"))
         {
-            ImGuiEx.Text($"Mount:");
+            ImGuiEx.Text("坐骑：");
             ImGuiEx.SetNextItemFullWidth(-10);
-            if (ImGui.BeginCombo($"##mount", Utils.GetMountName(C.CurrentMount) ?? "Select a mount..."))
+            if (ImGui.BeginCombo("##mount", Utils.GetMountName(C.CurrentMount) ?? Strings.SelectMount))
             {
                 ImGui.SetNextItemWidth(150f);
-                ImGui.InputTextWithHint("##search", "Filter", ref UI.MountFilter, 50);
-                if (ImGui.Selectable("No mount"))
+                ImGui.InputTextWithHint("##search", Strings.Filter, ref UI.MountFilter, 50);
+                if (ImGui.Selectable(Strings.NoMount))
                 {
                     C.CurrentMount = 0;
                 }
@@ -43,15 +43,15 @@ public class SettingsWindow : Window
             ImGuiGroup.EndGroupBox();
         }
 
-        if (ImGuiGroup.BeginGroupBox("Danger Zone", EColor.RedBright.ToUint()))
+        if (ImGuiGroup.BeginGroupBox("危险区域", EColor.RedBright.ToUint()))
         {
             if (P.Enabled) ImGui.BeginDisabled();
-            ImGui.Checkbox("Disable Zone Lock", ref C.DisableInnCheck);
-            ImGuiComponents.HelpMarker("Removes the inn room requirement for Hyperborea to function. Potentially dangerous if the packet filter fails for any reason while operating in a public area.");
+            ImGui.Checkbox("禁用区域限制", ref C.DisableInnCheck);
+            ImGuiComponents.HelpMarker($"移除 {Strings.PluginName} 只能在{Strings.InnRoomExample}内使用的限制。如果你在公共区域使用时数据包过滤出现异常，可能会有风险。");
             if (P.Enabled)
             {
                 ImGui.EndDisabled();
-                ImGuiEx.TextWrapped(EColor.RedBright, "You can not change settings while plugin is enabled");
+                ImGuiEx.TextWrapped(EColor.RedBright, "插件启用期间无法修改这些设置。");
             }
             ImGuiGroup.EndGroupBox();
         }

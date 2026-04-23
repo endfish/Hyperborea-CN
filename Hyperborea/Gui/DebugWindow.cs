@@ -17,7 +17,7 @@ using OpcodeUpdater = Hyperborea.Services.OpcodeUpdaterService.OpcodeUpdater;
 namespace Hyperborea.Gui;
 public unsafe class DebugWindow: Window
 {
-    public DebugWindow() : base("Hyperborea Debug Window")
+    public DebugWindow() : base(Strings.DebugWindowTitle)
     {
         EzConfigGui.WindowSystem.AddWindow(this);
     }
@@ -28,34 +28,41 @@ public unsafe class DebugWindow: Window
     public override void Draw()
     {
         ImGuiEx.EzTabBar("Tabs", [
-            ("Opcodes", DrawOpcodes, null, true),
-            ("Debug", DrawDebug, null, true)
+            ("Opcode", DrawOpcodes, null, true),
+            ("调试", DrawDebug, null, true)
             ]);
     }
 
     void DrawOpcodes()
     {
-        ImGui.Checkbox("Disable opcode auto-update", ref C.ManualOpcodeManagement);
-        ImGuiEx.HelpMarker($"When enabled, Hyperborea will not make any attempts to update opcodes and you will have to edit them manually every game update. You do not have to enable this checkbox in order to edit opcodes one time. ");
+        ImGui.Checkbox("禁用 opcode 自动更新", ref C.ManualOpcodeManagement);
+        ImGuiEx.HelpMarker($"启用后，{Strings.PluginName} 将不再尝试自动更新 opcode，之后每次游戏更新都需要你手动修改。仅临时编辑一次 opcode 时，不需要勾选这个选项。");
+        ImGuiEx.TextWrapped($"当前 ZoneDown：{(C.OpcodesZoneDown.Length > 0 ? Strings.OpcodeValues(C.OpcodesZoneDown) : "未设置")}");
 
         ImGuiEx.TextWrapped($"""
-                Enter ZoneDown opcodes.
-                How to find: go to the Inn, type /xldata network, wait for a while without doing any actions. You should see two opcodes with Direction=ZoneDown that repeats with the same time interval. Input value from OpCode column.
+                请输入 ZoneDown opcode。
+                获取方法：前往{Strings.InnRoomExample}，输入 /xldata network，然后在不做任何操作的情况下等待片刻。你应该会看到两个 Direction=ZoneDown 且按固定时间间隔重复出现的 opcode，把 OpCode 列中的值填进来。
+                支持十进制和十六进制，像 0x3C9,0x2D8 这样直接粘贴即可。
                 """);
         EditOpcodes("##zoneDown", ref C.OpcodesZoneDown);
+        if (ImGui.Button("套用已知国服 ZoneDown"))
+        {
+            C.OpcodesZoneDown = [.. OpcodeUpdater.KnownCnZoneDownFallback];
+        }
+        ImGuiEx.Tooltip($"当前内置值：{Strings.OpcodeValues(OpcodeUpdater.KnownCnZoneDownFallback)}");
         ImGui.Separator();
-        ImGui.Checkbox("Disable ZoneUp Auto Detect", ref C.DisableZoneUpAutoDetect);
+        ImGui.Checkbox("禁用 ZoneUp 自动检测", ref C.DisableZoneUpAutoDetect);
         if(C.DisableZoneUpAutoDetect)
         {
             ImGui.Indent();
             ImGuiEx.TextWrapped($"""
-                Enter ZoneDown opcode.
-                How to find: go to the Inn, type /xldata network, wait for a while without doing any actions. You should see one opcode with Direction=ZoneUp that repeats with the same time interval. Input value from OpCode column.
+                请输入 ZoneUp opcode。
+                获取方法：前往{Strings.InnRoomExample}，输入 /xldata network，然后在不做任何操作的情况下等待片刻。你应该会看到一个 Direction=ZoneUp 且按固定时间间隔重复出现的 opcode，把 OpCode 列中的值填进来。
                 """);
             EditOpcodes("##zoneUp", ref C.OpcodesZoneUp);
             ImGui.Unindent();
         }
-        if(ImGuiEx.IconButtonWithText(FontAwesomeIcon.Check, "Apply"))
+        if(ImGuiEx.IconButtonWithText(FontAwesomeIcon.Check, Strings.Apply))
         {
             OpcodeUpdater.Save();
         }
@@ -65,13 +72,13 @@ public unsafe class DebugWindow: Window
 
     void EditOpcodes(string id, ref uint[] opcodes)
     {
-        var str = opcodes.Print(",");
+        var str = Strings.OpcodeValues(opcodes);
         List<uint> newOpcodes = [];
         if(ImGui.InputText(id, ref str))
         {
             foreach(var x in str.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                if(uint.TryParse(x, out var result))
+                if(OpcodeUpdater.TryParseOpcodeInput(x, out var result))
                 {
                     newOpcodes.Add(result);
                 }
@@ -113,11 +120,11 @@ public unsafe class DebugWindow: Window
                 ImGuiEx.Text($"{l->ActiveFestivals[1]}");
                 ImGuiEx.Text($"{l->ActiveFestivals[2]}");
                 ImGuiEx.Text($"{l->ActiveFestivals[3]}");
-                ImGui.InputInt("fest 0", ref ints[0]);
-                ImGui.InputInt("fest 1", ref ints[1]);
-                ImGui.InputInt("fest 2", ref ints[2]);
-                ImGui.InputInt("fest 3", ref ints[3]);
-                if (ImGui.Button("Set festivals"))
+                ImGui.InputInt("活动 0", ref ints[0]);
+                ImGui.InputInt("活动 1", ref ints[1]);
+                ImGui.InputInt("活动 2", ref ints[2]);
+                ImGui.InputInt("活动 3", ref ints[3]);
+                if (ImGui.Button("设置活动"))
                 {
                     var s = stackalloc uint[] { (uint)ints[0], (uint)ints[1], (uint)ints[2], (uint)ints[3] };
                     l->SetActiveFestivals((FFXIVClientStructs.FFXIV.Client.Game.GameMain.Festival*)s);
@@ -125,8 +132,8 @@ public unsafe class DebugWindow: Window
             }
         }
 
-        ImGui.Checkbox($"Bypass all restrictions", ref P.Bypass);
-        if(ImGui.Button("Fill phases based on supported weather"))
+        ImGui.Checkbox("绕过所有限制", ref P.Bypass);
+        if(ImGui.Button("按支持天气填充阶段"))
         {
             if (P.Weathers.TryGetValue(Svc.ClientState.TerritoryType, out var weathers))
             {
@@ -145,25 +152,25 @@ public unsafe class DebugWindow: Window
                     level.Phases.Add(new() { Weather = x, Name = $"Phase {++i}" });
                 }
                 P.SaveZoneData();
-                Notify.Info($"Success");
+                Notify.Info("成功");
             }
             else
             {
-                Notify.Error($"Failure");
+                Notify.Error("失败");
             }
         }
-        if(ImGui.CollapsingHeader("Map effect"))
+        if(ImGui.CollapsingHeader("地图效果"))
         {
-            ImGuiEx.TextCopy($"Module: {Utils.GetMapEffectModule()}");
-            ImGuiEx.TextCopy($"Address: {(((nint)EventFramework.Instance()) + 344):X16}");
+            ImGuiEx.TextCopy($"模块：{Utils.GetMapEffectModule()}");
+            ImGuiEx.TextCopy($"地址：{(((nint)EventFramework.Instance()) + 344):X16}");
             ImGui.InputInt("1", ref i1);
             ImGui.InputInt("2", ref i2);
             ImGui.InputInt("3", ref i3);
-            if (ImGui.Button("Do"))
+            if (ImGui.Button("执行"))
             {
                 MapEffect.Delegate(Utils.GetMapEffectModule(), (uint)i1, (ushort)i2, (ushort)i3);
             }
-            if (ImGui.Button("Do 1-i1"))
+            if (ImGui.Button("执行 1 到 i1"))
             {
                 for (int i = 1; i <= i1; i++)
                 {
@@ -172,27 +179,27 @@ public unsafe class DebugWindow: Window
             }
         }
 
-        if (ImGui.CollapsingHeader("Weather"))
+        if (ImGui.CollapsingHeader("天气"))
         {
-            ImGui.InputInt("weather", ref i4);
-            if(ImGui.Button("Set weather"))
+            ImGui.InputInt("天气", ref i4);
+            if(ImGui.Button("设置天气"))
             {
                 var e = EnvManager.Instance();
                 e->ActiveWeather = (byte)i4;
                 e->TransitionTime = 0.5f;
             }
             var s = (int)*P.Memory.ActiveScene;
-            if(ImGui.InputInt("scene", ref s))
+            if(ImGui.InputInt("场景", ref s))
             {
                 *P.Memory.ActiveScene = (byte)s;
             }
         }
 
-        if (ImGui.CollapsingHeader("monitor hook"))
+        if (ImGui.CollapsingHeader("监视钩子"))
         {
-            if (ImGui.Button("Enable hook")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Enable();
-            if (ImGui.Button("Pause hook")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Pause();
-            if (ImGui.Button("Disable hook")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Disable();
+            if (ImGui.Button("启用钩子")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Enable();
+            if (ImGui.Button("暂停钩子")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Pause();
+            if (ImGui.Button("禁用钩子")) P.Memory.PacketDispatcher_OnReceivePacketMonitorHook.Disable();
         }
 
         if (ImGui.CollapsingHeader("Story"))

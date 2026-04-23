@@ -3,7 +3,7 @@
 namespace Hyperborea.Gui;
 public class LogWindow : Window
 {
-    public LogWindow() : base("Hyperborea log")
+    public LogWindow() : base(Strings.LogWindowTitle)
     {
         EzConfigGui.WindowSystem.AddWindow(this);
     }

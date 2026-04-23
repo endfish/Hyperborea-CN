@@ -10,7 +10,7 @@ using System.Windows.Forms;
 namespace Hyperborea.Gui;
 public class Overlay : Window
 {
-    public Overlay() : base("Hyperborea Overlay", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.AlwaysUseWindowPadding, true)
+    public Overlay() : base(Strings.OverlayWindowTitle, ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.AlwaysUseWindowPadding, true)
     {
         this.Position = Vector2.Zero;
         this.PositionCondition = ImGuiCond.Always;

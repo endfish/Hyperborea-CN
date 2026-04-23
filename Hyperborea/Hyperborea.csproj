@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Authors>kawaii</Authors>
-        <Version>1.0.0.33</Version>
+        <Authors>kawaii, 汉化: Endfish</Authors>
+        <Version>1.0.0.34</Version>
+        <AssemblyName>HyperboreaCN</AssemblyName>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -75,10 +76,6 @@
             <HintPath>$(DalamudLibPath)ImGuiScene.dll</HintPath>
             <Private>False</Private>
         </Reference>
-        <Reference Include="SharpDX">
-            <HintPath>$(DalamudLibPath)SharpDX.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
     </ItemGroup>
 
     <ItemGroup>
@@ -88,5 +85,10 @@
       <None Update="festivals.yaml">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+      <Content Include="..\opcodes\*.txt">
+        <Link>opcodes\%(Filename)%(Extension)</Link>
+        <TargetPath>opcodes\%(Filename)%(Extension)</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 </Project>
