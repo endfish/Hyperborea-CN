@@ -12,6 +12,7 @@ namespace Hyperborea.Gui;
 public unsafe class CompassWindow : Window
 {
     public Point3 PlayerPosition = new();
+    private uint selectedGuideInstanceId;
 
     public CompassWindow() : base(Strings.CompassWindowTitle, ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize)
     {
@@ -22,10 +23,10 @@ public unsafe class CompassWindow : Window
 
     public override bool DrawConditions()
     {
-        if (!P.Enabled) return false;
+        if (P.Session?.CanNavigate != true) return false;
         var layout = Utils.GetLayout();
         Utils.TryGetZoneInfo(layout, out var info);
-        if (P.Enabled && layout != null) return true;
+        if (P.Session.CanNavigate && layout != null) return true;
         return false;
     }
 
@@ -33,7 +34,7 @@ public unsafe class CompassWindow : Window
     {
         var layout = Utils.GetLayout();
         Utils.TryGetZoneInfo(layout, out var info, out var isOverriden);
-        if (P.Enabled && layout != null)
+        if (P.Session.CanNavigate && layout != null)
         {
             var array = info?.Phases ?? [];
             var phase = Utils.GetPhase(Svc.ClientState.TerritoryType);
@@ -80,7 +81,33 @@ public unsafe class CompassWindow : Window
                 P.EditorWindow.SelectedTerritory = Svc.ClientState.TerritoryType;
             }
 
+            var guidePoints = P.GuideService.GetGuidePoints(layout);
+            var selectedGuide = guidePoints.FirstOrDefault(x => x.InstanceId == selectedGuideInstanceId);
+            ImGuiEx.TextV("副本导览：");
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(250f);
+            if (ImGui.BeginCombo("##guide", selectedGuide?.Name ?? "选择副本导览地点…"))
+            {
+                foreach (var point in guidePoints)
+                {
+                    if (ImGui.Selectable($"{point.Name}##guide{point.InstanceId}", point.InstanceId == selectedGuideInstanceId))
+                    {
+                        selectedGuideInstanceId = point.InstanceId;
+                        if (P.Session.TryTeleport(point.Position.ToVector3(), out var error))
+                            P.Session.Report($"已前往：{point.Name}");
+                        else
+                            P.Session.Report($"无法前往 {point.Name}：{error}");
+                    }
+                    ImGuiEx.Tooltip($"{point.Kind} / {point.LayerName}\nInstance {point.InstanceId}\nX {point.Position.X:F2}  Y {point.Position.Y:F2}  Z {point.Position.Z:F2}");
+                }
+                ImGui.EndCombo();
+            }
+            if (guidePoints.Count == 0)
+                ImGuiEx.Text(EColor.YellowBright, "该区域的 PlanMap 中没有可用导览点。");
+            else
+                ImGuiEx.Tooltip("导览点来自本地 PlanMap LGB；选择后会通过安全坐标入口前往，不会请求服务器传送。");
 
+            if (!C.EnableAdvancedUnsafeControls) ImGui.BeginDisabled();
             UI.CoordBlock("X:", ref PlayerPosition.X);
             ImGui.SameLine();
             UI.CoordBlock("Y:", ref PlayerPosition.Y);
@@ -89,14 +116,16 @@ public unsafe class CompassWindow : Window
             ImGui.SameLine();
             if (ImGuiEx.IconButton("\uf3c5"))
             {
-                Player.GameObject->SetPosition(PlayerPosition.X, PlayerPosition.Y, PlayerPosition.Z);
+                if (!P.Session.TryTeleport(PlayerPosition.ToVector3(), out var error))
+                    P.Session.Report(error);
             }
             ImGuiEx.Tooltip("传送到当前配置的坐标。");
             ImGui.SameLine();
             if (ImGuiEx.IconButton("\uf030"))
             {
                 var cam = (CameraEx*)CameraManager.Instance()->GetActiveCamera();
-                Player.GameObject->SetPosition(cam->x, cam->y, cam->z);
+                if (!P.Session.TryTeleport(new(cam->x, cam->y, cam->z), out var error))
+                    P.Session.Report(error);
             }
             ImGuiEx.Tooltip("传送到当前镜头所在的位置。");
             ImGui.SameLine();
@@ -153,6 +182,13 @@ public unsafe class CompassWindow : Window
                 ImGui.SetNextItemWidth(100f);
                 ImGuiEx.SliderFloat("##speed", ref C.NoclipSpeed, 0.05f, 0.5f);
                 C.ForcedFlight = false;
+            }
+            if (!C.EnableAdvancedUnsafeControls)
+            {
+                C.FastTeleport = false;
+                C.ForcedFlight = false;
+                P.Noclip = false;
+                ImGui.EndDisabled();
             }
         }
     }

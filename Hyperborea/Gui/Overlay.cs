@@ -33,7 +33,10 @@ public class Overlay : Window
 
     public override bool DrawConditions()
     {
-        return P.Enabled && C.FastTeleport && IsKeyPressed([LimitedKeys.LeftControlKey, LimitedKeys.RightControlKey]);
+        return P.Session?.CanNavigate == true
+            && C.EnableAdvancedUnsafeControls
+            && C.FastTeleport
+            && IsKeyPressed([LimitedKeys.LeftControlKey, LimitedKeys.RightControlKey]);
     }
 
     public override void Draw()

@@ -3,9 +3,6 @@ using ECommons.ExcelServices;
 using ECommons.ExcelServices.TerritoryEnumeration;
 using ECommons.GameHelpers;
 using ECommons.ImGuiMethods.TerritorySelection;
-using FFXIVClientStructs.FFXIV.Client.Game.Event;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Environment;
-using FFXIVClientStructs.FFXIV.Client.LayoutEngine;
 using Lumina.Excel.Sheets;
 using Hyperborea.Services;
 using ECommons.ChatMethods;
@@ -62,24 +59,23 @@ public unsafe static class UI
             ImGuiEx.Tooltip($"当前内置值：{Strings.OpcodeValues(OpcodeUpdater.KnownCnZoneDownFallback)}");
             return;
         }
-        var l = LayoutWorld.Instance()->ActiveLayout;
-        var disableCheckbox = !Utils.CanEnablePlugin(out var DisableReasons) || Svc.Condition[ConditionFlag.Mounted];
+        var sessionTransitioning = P.Session.State is ExplorationState.Arming or ExplorationState.Reverting or ExplorationState.Faulted;
+        List<string> DisableReasons = [];
+        var canEnable = P.Session.IsActive || Utils.CanEnablePlugin(out DisableReasons);
+        var disableCheckbox = sessionTransitioning
+            || (!P.Session.IsActive && (!canEnable || Svc.Condition[ConditionFlag.Mounted]));
         if (disableCheckbox) ImGui.BeginDisabled();
-        if (ImGui.Checkbox($"启用 {Strings.PluginName}", ref P.Enabled))
+        var requestedEnabled = P.Session.IsActive;
+        if (ImGui.Checkbox($"启用 {Strings.PluginName}", ref requestedEnabled))
         {
-            if (P.Enabled)
+            if (requestedEnabled)
             {
-                SavedPos = Player.Object.Position;
-                P.Memory.EnableFirewall();
-                P.Memory.TargetSystem_InteractWithObjectHook.Enable();
+                if (!P.Session.TryArm(out var error))
+                    P.Session.Report(error);
             }
             else
             {
-                Utils.Revert();
-                SavedPos = null;
-                SavedZoneState = null;
-                P.Memory.DisableFirewall();
-                P.Memory.TargetSystem_InteractWithObjectHook.Pause();
+                P.Session.RequestRevert(true);
             }
         }
         if (disableCheckbox)
@@ -94,9 +90,25 @@ public unsafe static class UI
                 ImGuiEx.HelpMarker("禁用前你必须先下坐骑，或先执行还原。", ImGuiColors.DalamudOrange);
             }
         }
+        var stateColor = P.Session.State == ExplorationState.Faulted ? EColor.RedBright
+            : P.Session.State is ExplorationState.Arming or ExplorationState.Reverting ? EColor.YellowBright
+            : EColor.GreenBright;
+        ImGuiEx.TextWrapped(stateColor, $"安全状态：{P.Session.Status}");
+        if (P.Session.HasRecoveryNotice && !P.Session.IsActive)
+        {
+            ImGuiEx.TextWrapped(EColor.YellowBright, $"检测到上次探索会话没有完成安全停用。记录的原区域：{C.RecoveryTerritory}。如果客户端画面仍是探索地图，请先执行恢复；只有已经回到记录区域时才能清除标记。");
+            if (ImGui.Button("执行异常会话恢复"))
+            {
+                if (!P.Session.TryRecoverPreviousSession(out var error))
+                    P.Session.Report(error);
+            }
+            ImGui.SameLine();
+            if (ImGui.Button("确认当前状态并清除恢复标记"))
+                P.Session.ClearRecoveryNotice();
+        }
         ImGuiEx.Text("数据包过滤：");
         ImGui.SameLine();
-        if (P.Memory.PacketDispatcher_OnSendPacketHook.IsEnabled && P.Memory.PacketDispatcher_OnReceivePacketHook.IsEnabled)
+        if (P.Memory.AreSafetyHooksEnabled)
         {
             ImGui.PushFont(UiBuilder.IconFont);
             ImGuiEx.Text(EColor.GreenBright, FontAwesomeIcon.Check.ToIconString());
@@ -195,12 +207,21 @@ public unsafe static class UI
                 if (disableda3) ImGui.EndDisabled();
                 if (!StoryValues.Contains((uint)a3)) a3 = (int)StoryValues.FirstOrDefault();
                 ImGui.SetNextItemWidth(150);
+                if (!C.EnableAdvancedUnsafeControls) ImGui.BeginDisabled();
                 ImGui.InputInt("参数 4", ref a4);
                 ImGui.SetNextItemWidth(150);
                 ImGui.InputInt("参数 5", ref a5);
                 ImGui.SetNextItemWidth(150);
                 ImGui.InputInt("CFC 覆盖值", ref CFCOverride);
+                if (!C.EnableAdvancedUnsafeControls)
+                {
+                    a4 = 0;
+                    a5 = 1;
+                    CFCOverride = 0;
+                    ImGui.EndDisabled();
+                }
 
+                if (!C.EnableAdvancedUnsafeControls) ImGui.BeginDisabled();
                 ImGui.Checkbox("覆盖出生点：", ref SpawnOverride);
                 if (!SpawnOverride) ImGui.BeginDisabled();
                 CoordBlock("X:", ref Position.X);
@@ -209,6 +230,11 @@ public unsafe static class UI
                 ImGui.SameLine();
                 CoordBlock("Z:", ref Position.Z);
                 if (!SpawnOverride) ImGui.EndDisabled();
+                if (!C.EnableAdvancedUnsafeControls)
+                {
+                    SpawnOverride = false;
+                    ImGui.EndDisabled();
+                }
 
                 ImGuiHelpers.ScaledDummy(3f);
                 ImGui.Separator();
@@ -248,22 +274,21 @@ public unsafe static class UI
                     if (ImGui.Button(Strings.LoadZone))
                     {
                         Utils.TryGetZoneInfo(Utils.GetLayout((uint)a2), out var info2);
-                        SavedZoneState ??= new SavedZoneState(l->TerritoryTypeId, Player.Object.Position);
-                        Utils.LoadZone((uint)a2, !SpawnOverride, true, a3, a4, a5, a6, CFCOverride);
-                        if (SpawnOverride)
+                        var destination = SpawnOverride ? Position : info2?.Spawn;
+                        if (destination != null && !P.Session.ValidatePosition(destination.ToVector3(), out var error))
                         {
-                            Player.GameObject->SetPosition(Position.X, Position.Y, Position.Z);
+                            P.Session.Report($"拒绝加载区域：{error}");
                         }
-                        else if (info2 != null && info2.Spawn != null)
+                        else
                         {
-                            Player.GameObject->SetPosition(info2.Spawn.X, info2.Spawn.Y, info2.Spawn.Z);
+                            Utils.LoadZone((uint)a2, false, true, a3, a4, a5, a6, CFCOverride, destination);
                         }
                     }
                     if (disabled) ImGui.EndDisabled();
                 }
                 ImGui.SameLine();
                 {
-                    var disabled = !P.Enabled;
+                    var disabled = P.Session.State != ExplorationState.Exploring;
                     if (disabled) ImGui.BeginDisabled();
                     if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Undo, Strings.Revert))
                     {

@@ -13,4 +13,8 @@ public class Config : IEzConfig
     public uint[] OpcodesZoneUp = [];
     public bool ManualOpcodeManagement = false;
     public bool DisableZoneUpAutoDetect = false;
+    public bool EnableAdvancedUnsafeControls = false;
+    public bool RecoveryRequired = false;
+    public uint RecoveryTerritory = 0;
+    public Point3 RecoveryPosition = new();
 }

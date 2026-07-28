@@ -281,7 +281,7 @@ public unsafe static class Utils
     public static bool IsInInnInternal() => Svc.Data.GetExcelSheet<TerritoryType>().GetRowOrDefault(Svc.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == (uint) TerritoryIntendedUseEnum.Inn;
 
     internal static uint? InstanceContentWasLoaded = null;
-    public static void LoadZone(uint territory, bool setPosition, bool setPhase, int a3 = 0, int a4 = 0, int a5 = 1, int a6 = 1, int cfcOverride = 0)
+    public static void LoadZone(uint territory, bool setPosition, bool setPhase, int a3 = 0, int a4 = 0, int a5 = 1, int a6 = 1, int cfcOverride = 0, Point3 positionOverride = null)
     {
         if(InstanceContentWasLoaded != null)
         {
@@ -300,7 +300,8 @@ public unsafe static class Utils
             InstanceContentWasLoaded = content.Value;
         }
 
-        P.Memory.LoadZoneDetour((nint)GameMain.Instance(), territory, a3, (byte)a4, (byte)a5, (byte)a6);
+        P.Session.ExecuteTrustedZoneLoad(() =>
+            P.Memory.LoadZoneDetour((nint)GameMain.Instance(), territory, a3, (byte)a4, (byte)a5, (byte)a6));
         P.Memory.SetupTerritoryType(EventFramework.Instance(), (ushort)territory);
         try
         {
@@ -312,46 +313,28 @@ public unsafe static class Utils
             e.Log();
         }
         var level = Svc.Data.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory)?.Bg.ExtractText();
+        Point3 destination = positionOverride;
+        PhaseInfo initialPhase = null;
         if(!level.IsNullOrEmpty() && Utils.TryGetZoneInfo(level, out var value))
         {
-            if (setPosition && value.Spawn != null)
-            {
-                Player.GameObject->SetPosition(value.Spawn.X, value.Spawn.Y, value.Spawn.Z);
-            }
+            if (destination == null && setPosition)
+                destination = value.Spawn;
             if (setPhase && value.Phases.Count > 0)
-            {
-                P.TaskManager.DelayNext(1000);
-                P.TaskManager.Enqueue(() =>
-                {
-                    var e = EnvManager.Instance();
-                    e->ActiveWeather = (byte)value.Phases.First().Weather;
-                    e->TransitionTime = 0.5f;
-                    P.ApplyFestivals(value.Phases.First().Festivals);
-                });
-            }
+                initialPhase = value.Phases.First();
         }
+
+        if (P.Session.State == ExplorationState.Exploring && (destination != null || initialPhase != null))
+            P.Session.QueueZoneReadyAction(territory, destination?.ToVector3(), initialPhase);
     }
 
     public static bool CanUse()
     {
-        var hooks = (P.Memory.PacketDispatcher_OnReceivePacketHook.IsEnabled && P.Memory.PacketDispatcher_OnSendPacketHook.IsEnabled);
         var inn = Utils.IsInInn() || C.DisableInnCheck;
-        return hooks && inn;
+        return P.Session?.CanNavigate == true && inn;
     }
 
     public static void Revert()
     {
-        if (Svc.Condition[ConditionFlag.Mounted]) Player.Character->Mount.CreateAndSetupMount(0, 0, 0, 0, 0, 0, 0);
-        if (UI.SavedPos != null)
-        {
-            Player.GameObject->SetPosition(UI.SavedPos.Value.X, UI.SavedPos.Value.Y, UI.SavedPos.Value.Z);
-        }
-        if (UI.SavedZoneState != null)
-        {
-            if (LayoutWorld.Instance()->ActiveLayout == null || LayoutWorld.Instance()->ActiveLayout->TerritoryTypeId != UI.SavedZoneState.ZoneId)
-            {
-                Utils.LoadZone(UI.SavedZoneState.ZoneId, false, false);
-            }
-        }
+        P.Session?.RequestRevert(false);
     }
 }

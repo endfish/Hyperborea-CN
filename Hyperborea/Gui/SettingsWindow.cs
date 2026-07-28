@@ -46,8 +46,16 @@ public class SettingsWindow : Window
         if (ImGuiGroup.BeginGroupBox("危险区域", EColor.RedBright.ToUint()))
         {
             if (P.Enabled) ImGui.BeginDisabled();
+            ImGui.Checkbox("启用高级坐标与加载控制", ref C.EnableAdvancedUnsafeControls);
+            ImGuiComponents.HelpMarker("启用后才允许任意坐标、镜头传送、快速传送、穿模、区域限制绕过和 CFC 覆盖。副本导览不需要启用。");
+            if (!C.EnableAdvancedUnsafeControls) ImGui.BeginDisabled();
             ImGui.Checkbox("禁用区域限制", ref C.DisableInnCheck);
             ImGuiComponents.HelpMarker($"移除 {Strings.PluginName} 只能在{Strings.InnRoomExample}内使用的限制。如果你在公共区域使用时数据包过滤出现异常，可能会有风险。");
+            if (!C.EnableAdvancedUnsafeControls)
+            {
+                C.DisableInnCheck = false;
+                ImGui.EndDisabled();
+            }
             if (P.Enabled)
             {
                 ImGui.EndDisabled();

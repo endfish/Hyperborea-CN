@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.Network;
 using Lumina.Excel.Sheets;
 using System.CodeDom;
 using System.Net.NetworkInformation;
+using System.Threading;
 using TerraFX.Interop.Windows;
 using static FFXIVClientStructs.FFXIV.Client.Network.PacketDispatcher.Delegates;
 
@@ -48,6 +49,7 @@ public unsafe class Memory
     internal byte* ActiveScene;
 
     private static ushort HeartbeatOpcode;
+    private long lastAllowedZoneUpAt;
 
     internal delegate byte IsAllowedToReceiveDirectMessages(nint a1, int checkType, byte a3, byte a4);
     [EzHook("48 89 5C 24 ?? 57 48 83 EC 20 48 63 FA 41 0F B6 D8", false)]
@@ -70,7 +72,7 @@ public unsafe class Memory
     {
         try
         {
-            if (P.Enabled && C.ForcedFlight) return 0;
+            if (P.Enabled && C.EnableAdvancedUnsafeControls && C.ForcedFlight) return 0;
         }
         catch(Exception e)
         {
@@ -151,23 +153,64 @@ public unsafe class Memory
         return 0;
     }
 
-    public void EnableFirewall()
+    public void EnableSafetyHooks()
     {
+        Interlocked.Exchange(ref lastAllowedZoneUpAt, 0);
         IsAllowedToReceiveDirectMessagesHook.Enable();
         PacketDispatcher_OnReceivePacketHook.Enable();
         PacketDispatcher_OnSendPacketHook.Enable();
+        TargetSystem_InteractWithObjectHook.Enable();
+        LoadZoneHook.Enable();
         IsFlightProhibitedHook?.Enable();
     }
 
-    public void DisableFirewall()
+    public void DisableSafetyHooks()
     {
         IsAllowedToReceiveDirectMessagesHook.Pause();
         PacketDispatcher_OnReceivePacketHook.Pause();
         PacketDispatcher_OnSendPacketHook.Pause();
+        TargetSystem_InteractWithObjectHook.Pause();
+        LoadZoneHook.Pause();
         IsFlightProhibitedHook?.Pause();
     }
 
+    public void EnableFirewall() => EnableSafetyHooks();
+
+    public void DisableFirewall() => DisableSafetyHooks();
+
     public bool IsFirewallEnabled => PacketDispatcher_OnSendPacketHook.IsEnabled;
+
+    public bool AreSafetyHooksEnabled =>
+        PacketDispatcher_OnReceivePacketHook.IsEnabled
+        && PacketDispatcher_OnSendPacketHook.IsEnabled
+        && TargetSystem_InteractWithObjectHook.IsEnabled
+        && LoadZoneHook.IsEnabled;
+
+    public bool IsPacketConfigurationSane(out string reason)
+    {
+        if (C.OpcodesZoneDown.Length == 0 || C.OpcodesZoneDown.Any(x => x == 0 || x > ushort.MaxValue))
+        {
+            reason = "ZoneDown opcode 未设置或超出有效范围。";
+            return false;
+        }
+
+        if (C.DisableZoneUpAutoDetect)
+        {
+            if (C.OpcodesZoneUp.Length == 0 || C.OpcodesZoneUp.Any(x => x == 0 || x > ushort.MaxValue))
+            {
+                reason = "已禁用 ZoneUp 自动检测，但手动 ZoneUp opcode 未设置或无效。";
+                return false;
+            }
+        }
+        else if (HeartbeatOpcode == 0 || HeartbeatOpcode == ushort.MaxValue)
+        {
+            reason = "自动检测到的心跳 opcode 无效。";
+            return false;
+        }
+
+        reason = "";
+        return true;
+    }
 
     private byte PacketDispatcher_OnSendPacketDetour(nint a1, nint a2, nint a3, byte a4)
     {
@@ -183,13 +226,17 @@ public unsafe class Memory
         {
             var opcode = *(ushort*)a2;
 
-            if(C.ManualOpcodeManagement && C.DisableZoneUpAutoDetect && C.OpcodesZoneUp.Contains(opcode))
+            if(C.DisableZoneUpAutoDetect && C.OpcodesZoneUp.Contains((uint)opcode))
             {
+                if (!TryConsumeHeartbeatCadence(opcode))
+                    return DefaultReturnValue;
                 PluginLog.Verbose($"[HyperFirewall] (manual management) Passing outgoing packet with opcode {opcode} through.");
                 return PacketDispatcher_OnSendPacketHook.Original(a1, a2, a3, a4);
             }
-            else if (opcode == HeartbeatOpcode)
+            else if (!C.DisableZoneUpAutoDetect && opcode == HeartbeatOpcode)
             {
+                if (!TryConsumeHeartbeatCadence(opcode))
+                    return DefaultReturnValue;
                 PluginLog.Verbose($"[HyperFirewall] Passing outgoing packet with opcode {opcode} through.");
                 return PacketDispatcher_OnSendPacketHook.Original(a1, a2, a3, a4);
             }
@@ -206,6 +253,21 @@ public unsafe class Memory
         }
 
         return DefaultReturnValue;
+    }
+
+    private bool TryConsumeHeartbeatCadence(ushort opcode)
+    {
+        const long minimumIntervalMs = 250;
+        var now = Environment.TickCount64;
+        var previous = Interlocked.Read(ref lastAllowedZoneUpAt);
+        if (previous != 0 && now - previous < minimumIntervalMs)
+        {
+            PluginLog.Warning($"[HyperFirewall] Suppressing opcode {opcode}: repeated sooner than {minimumIntervalMs} ms.");
+            return false;
+        }
+
+        Interlocked.Exchange(ref lastAllowedZoneUpAt, now);
+        return true;
     }
 
     private void PacketDispatcher_OnReceivePacketDetour(PacketDispatcher* a1, uint a2, nint a3)
@@ -242,6 +304,13 @@ public unsafe class Memory
 
     internal nint LoadZoneDetour(nint a1, uint a2, int a3, byte a4, byte a5, byte a6)
     {
+        if (P?.Session?.IsActive == true && !P.Session.IsTrustedZoneLoad)
+        {
+            PluginLog.Warning($"[HyperSafety] Blocked an untrusted local zone transition to {a2}.");
+            P.Session.NotifyBlockedZoneTransition(a2);
+            return 0;
+        }
+
         try
         {
             PluginLog.Debug($"Loading {ExcelTerritoryHelper.GetName(a2, true)}, {a3}, {a4}, {a5}, {a6}");

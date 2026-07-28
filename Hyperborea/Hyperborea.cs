@@ -27,6 +27,8 @@ public unsafe class Hyperborea : IDalamudPlugin
 {
     public static Hyperborea P;
     public Memory Memory;
+    public ExplorationSession Session;
+    public ZoneGuideService GuideService;
     public SettingsWindow SettingsWindow;
     public LogWindow LogWindow;
     public DebugWindow DebugWindow;
@@ -66,6 +68,8 @@ public unsafe class Hyperborea : IDalamudPlugin
             EzConfigGui.Window.Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoScrollbar;
             EzCmd.Add(Strings.Command, OnCommand);
             Memory = new();
+            Session = new();
+            GuideService = new();
             SettingsWindow = new();
             LogWindow = new();
             DebugWindow = new();
@@ -99,9 +103,10 @@ public unsafe class Hyperborea : IDalamudPlugin
     bool IsLButtonPressed = false;
     private void Tick()
     {
-        if(Enabled)
+        Session?.Tick();
+        if(Session?.CanNavigate == true)
         {
-            if (C.FastTeleport)
+            if (C.EnableAdvancedUnsafeControls && C.FastTeleport)
             {
                 if (!CSFramework.Instance()->WindowInactive && IsKeyPressed([LimitedKeys.LeftControlKey, LimitedKeys.RightControlKey]))
                 {
@@ -113,7 +118,7 @@ public unsafe class Hyperborea : IDalamudPlugin
                         {
                             if (!IsLButtonPressed)
                             {
-                                Player.GameObject->SetPosition(res.X, res.Y, res.Z);
+                                Session.TryTeleport(res, out _);
                             }
                             IsLButtonPressed = true;
                         }
@@ -124,41 +129,41 @@ public unsafe class Hyperborea : IDalamudPlugin
                     }
                 }
             }
-            if (Noclip && !CSFramework.Instance()->WindowInactive)
+            if (C.EnableAdvancedUnsafeControls && Noclip && !CSFramework.Instance()->WindowInactive)
             {
                 if (Svc.KeyState.GetRawValue(VirtualKey.SPACE) != 0 || IsKeyPressed(LimitedKeys.Space))
                 {
                     Svc.KeyState.SetRawValue(VirtualKey.SPACE, 0);
-                    Player.GameObject->SetPosition(Player.Object.Position.X, Player.Object.Position.Y + C.NoclipSpeed, Player.Object.Position.Z);
+                    Session.TryTeleport(new(Player.Object.Position.X, Player.Object.Position.Y + C.NoclipSpeed, Player.Object.Position.Z), out _);
                 }
                 if (Svc.KeyState.GetRawValue(VirtualKey.LSHIFT) != 0 || IsKeyPressed(LimitedKeys.LeftShiftKey))
                 {
                     Svc.KeyState.SetRawValue(VirtualKey.LSHIFT, 0);
-                    Player.GameObject->SetPosition(Player.Object.Position.X, Player.Object.Position.Y - C.NoclipSpeed, Player.Object.Position.Z);
+                    Session.TryTeleport(new(Player.Object.Position.X, Player.Object.Position.Y - C.NoclipSpeed, Player.Object.Position.Z), out _);
                 }
                 if (Svc.KeyState.GetRawValue(VirtualKey.W) != 0 || IsKeyPressed(LimitedKeys.W))
                 {
                     var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI-((CameraEx*)CameraManager.Instance()->GetActiveCamera())->currentHRotation, Player.Object.Position + new Vector3(0, 0, C.NoclipSpeed));
                     Svc.KeyState.SetRawValue(VirtualKey.W, 0);
-                    Player.GameObject->SetPosition(newPoint.X, newPoint.Y, newPoint.Z);
+                    Session.TryTeleport(newPoint, out _);
                 }
                 if (Svc.KeyState.GetRawValue(VirtualKey.S) != 0 || IsKeyPressed(LimitedKeys.S))
                 {
                     var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - ((CameraEx*)CameraManager.Instance()->GetActiveCamera())->currentHRotation, Player.Object.Position + new Vector3(0, 0, -C.NoclipSpeed));
                     Svc.KeyState.SetRawValue(VirtualKey.S, 0);
-                    Player.GameObject->SetPosition(newPoint.X, newPoint.Y, newPoint.Z);
+                    Session.TryTeleport(newPoint, out _);
                 }
                 if (Svc.KeyState.GetRawValue(VirtualKey.A) != 0 || IsKeyPressed(LimitedKeys.A))
                 {
                     var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - ((CameraEx*)CameraManager.Instance()->GetActiveCamera())->currentHRotation, Player.Object.Position + new Vector3(C.NoclipSpeed, 0, 0));
                     Svc.KeyState.SetRawValue(VirtualKey.A, 0);
-                    Player.GameObject->SetPosition(newPoint.X, newPoint.Y, newPoint.Z);
+                    Session.TryTeleport(newPoint, out _);
                 }
                 if (Svc.KeyState.GetRawValue(VirtualKey.D) != 0 || IsKeyPressed(LimitedKeys.D))
                 {
                     var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - ((CameraEx*)CameraManager.Instance()->GetActiveCamera())->currentHRotation, Player.Object.Position + new Vector3(-C.NoclipSpeed, 0, 0));
                     Svc.KeyState.SetRawValue(VirtualKey.D, 0);
-                    Player.GameObject->SetPosition(newPoint.X, newPoint.Y, newPoint.Z);
+                    Session.TryTeleport(newPoint, out _);
                 }
             }
         }
@@ -205,7 +210,7 @@ public unsafe class Hyperborea : IDalamudPlugin
 
     private void OnLogout()
     {
-        if(P.Enabled)
+        if(Session?.IsActive == true)
         {
             PluginLog.Warning($"Disconnect detected, opcode redownload scheduled.");
             C.GameVersion = "";
@@ -214,9 +219,7 @@ public unsafe class Hyperborea : IDalamudPlugin
             AllowedOperation = false;
             EzConfig.Save();
         }
-        P.Enabled = false;
-        UI.SavedPos = null;
-        UI.SavedZoneState = null;
+        Session?.HandleLogout();
     }
 
     private void OnCommand(string command, string arguments)
@@ -264,10 +267,8 @@ public unsafe class Hyperborea : IDalamudPlugin
 
     public void Dispose()
     {
-        if(Svc.ClientState.IsLoggedIn && Enabled)
-        {
-            Utils.Revert();
-        }
+        if(Svc.ClientState.IsLoggedIn)
+            Session?.PrepareForDispose();
         ECommonsMain.Dispose();
         P = null;
     }
