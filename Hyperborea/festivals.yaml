@@ -8,6 +8,44 @@
 - Id: 7
   Name: 未知的巨像
   Unsafe: false
+- Id: 17
+  # 十二神大圣堂
+  Name: 地毯
+  Unsafe: false
+  Phases:
+  - Id: 1
+    Name: 白色
+  - Id: 2
+    Name: 粉色
+  - Id: 3
+    Name: 橙色
+  - Id: 4
+    Name: 蓝色
+  - Id: 5
+    Name: 红色
+- Id: 18
+  # 十二神大圣堂
+  Name: 花饰
+  Unsafe: false
+  Phases:
+  - Id: 1
+    Name: 白色（标准）
+  - Id: 2
+    Name: 白色（金色）
+  - Id: 3
+    Name: 粉色（金色）
+  - Id: 4
+    Name: 橙色（金色）
+  - Id: 5
+    Name: 白色（白金）
+  - Id: 6
+    Name: 粉色（白金）
+  - Id: 7
+    Name: 橙色（白金）
+  - Id: 8
+    Name: 蓝色（白金）
+  - Id: 9
+    Name: 红色（白金）
 - Id: 26
   Name: 新年军略（乐曲）（2015）
   Unsafe: false
@@ -98,6 +136,32 @@
 - Id: 73
   Name: 五周年纪念活动（2018）
   Unsafe: false
+- Id: 74
+  # 十二神大圣堂
+  Name: 灯光
+  Unsafe: false
+  Phases:
+  - Id: 1
+    Name: 自然
+  - Id: 2
+    Name: 浪漫
+- Id: 75
+  # 十二神大圣堂
+  Name: 帷幔
+  Unsafe: false
+  Phases:
+  - Id: 1
+    Name: 素色
+  - Id: 2
+    Name: 白色
+  - Id: 3
+    Name: 粉色
+  - Id: 4
+    Name: 橙色
+  - Id: 5
+    Name: 蓝色
+  - Id: 6
+    Name: 红色
 - Id: 76
   Name: 守护天节（2018）
   Unsafe: false

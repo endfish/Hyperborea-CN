@@ -1,6 +1,5 @@
 ﻿using ECommons.GameHelpers;
 using ECommons.SimpleGui;
-using ECommons.Throttlers;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using Lumina.Excel.Sheets;
 using System;
@@ -13,7 +12,6 @@ namespace Hyperborea.Gui;
 public unsafe class CompassWindow : Window
 {
     public Point3 PlayerPosition = new();
-    string FestFilter = "";
 
     public CompassWindow() : base(Strings.CompassWindowTitle, ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize)
     {
@@ -156,40 +154,6 @@ public unsafe class CompassWindow : Window
                 ImGuiEx.SliderFloat("##speed", ref C.NoclipSpeed, 0.05f, 0.5f);
                 C.ForcedFlight = false;
             }
-
-            ImGui.SetNextItemWidth(250f);
-            var fests = P.SelectedFestivals.Select(x => P.FestivalDatas.FirstOrDefault(z => z.Id == x).Name).Join(", ");
-            if (ImGui.BeginCombo("##fest", fests.IsNullOrEmpty()? Strings.SelectFestivals:fests, ImGuiComboFlags.HeightLarge))
-            {
-                ImGui.SetNextItemWidth(150f);
-                ImGui.InputTextWithHint("##fltr1", Strings.Search, ref FestFilter, 50);
-                ImGui.SameLine();
-                if(ImGui.Button(Strings.DeselectAll))
-                {
-                    P.SelectedFestivals.Clear();
-                    P.ApplyFestivals();
-                }
-                foreach(var x in P.FestivalDatas)
-                {
-                    if (x.Unsafe) continue;
-                    if (FestFilter != "" && !x.Name.Contains(FestFilter, StringComparison.OrdinalIgnoreCase)) continue;
-                    var disabled = !P.SelectedFestivals.Contains(x.Id) && P.SelectedFestivals.Count >= 4;
-                    if (disabled) ImGui.BeginDisabled();
-                    ImGuiEx.CollectionCheckbox($"{x.Name}##{x.Id}", x.Id, P.SelectedFestivals);
-                    if(P.SelectedFestivals.Contains(x.Id) && ImGui.IsWindowAppearing()) ImGui.SetScrollHereY();
-                    if (disabled) ImGui.EndDisabled();
-                }
-                ImGui.EndCombo();
-            }
-            var disabled2 = !EzThrottler.Check("ApplyFestival");
-            if (disabled2) ImGui.BeginDisabled();
-            ImGui.SameLine();
-            if (ImGui.Button(Strings.Apply))
-            {
-                P.ApplyFestivals();
-                EzThrottler.Throttle("ApplyFestival", 2000, true);
-            }
-            if (disabled2) ImGui.EndDisabled();
         }
     }
 }

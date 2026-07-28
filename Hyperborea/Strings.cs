@@ -32,6 +32,10 @@ internal static class Strings
     public const string LoadZone = "加载区域";
     public const string Revert = "还原";
     public const string NotDefined = "未定义";
+    public const string Festivals = "活动：";
+    public const string NoFestivalsInZone = "（当前区域没有活动）";
+    public const string FestivalOff = "关闭";
+    public const string FestivalOn = "开启";
     public const string InnRoomExample = "旅馆房间（例如栖木旅馆）";
 
     public static string UnknownFestival(int id) => $"未知活动 {id}";
@@ -40,4 +44,5 @@ internal static class Strings
     public static string EditingZone(string zoneName) => $"当前编辑：{zoneName}";
     public static string SharedDataWith(IEnumerable<string> zones) => $"与以下区域共享数据：\n{string.Join("\n", zones)}";
     public static string OpcodeValues(IEnumerable<uint> values) => string.Join(", ", values.Select(x => $"0x{x:X}"));
+    public static string FestivalPhase(int phaseId) => $"阶段 {phaseId}";
 }
