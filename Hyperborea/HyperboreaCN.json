@@ -7,5 +7,12 @@
     "RepoUrl": "https://github.com/endfish/Hyperborea-CN",
     "IconUrl": "https://raw.githubusercontent.com/endfish/Hyperborea-CN/main/icon.png",
     "AcceptsFeedback": false,
+    "Tags": [
+        "gpose",
+        "exploration",
+        "map",
+        "dungeon",
+        "utility"
+    ],
     "DalamudApiLevel": 15
 }
