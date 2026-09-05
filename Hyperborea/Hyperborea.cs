@@ -6,7 +6,6 @@ using ECommons.Configuration;
 using ECommons.ExcelServices;
 using ECommons.EzEventManager;
 using ECommons.GameHelpers;
-using ECommons.Hooks;
 using ECommons.Interop;
 using ECommons.SimpleGui;
 using ECommons.Singletons;
@@ -78,7 +77,6 @@ public unsafe class Hyperborea : IDalamudPlugin
             new EzTerritoryChanged(OnTerritoryChanged);
             TaskManager = new();
             ZoneData = EzConfig.LoadConfiguration<ZoneData>(DataFileName);
-            MapEffect.Init(OnMapEffect);
             EditorWindow = new();
             CompassWindow = new();
             Utils.LoadBuiltInZoneData();
@@ -167,11 +165,6 @@ public unsafe class Hyperborea : IDalamudPlugin
                 }
             }
         }
-    }
-
-    private void OnMapEffect(long arg1, uint arg2, ushort arg3, ushort arg4)
-    {
-        InternalLog.Debug($"Map effect: {arg2}, {arg3}, {arg4}");
     }
 
     private void OnTerritoryChanged(uint obj)

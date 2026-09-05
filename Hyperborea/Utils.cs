@@ -3,7 +3,6 @@ using ECommons.ExcelServices;
 using ECommons.ExcelServices.TerritoryEnumeration;
 using ECommons.GameFunctions;
 using ECommons.GameHelpers;
-using ECommons.Hooks;
 using ECommons.Reflection;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -118,7 +117,10 @@ public unsafe static class Utils
 
     public static nint GetMapEffectModule()
     {
-        return *(nint*)(((nint)EventFramework.Instance()) + 344);
+        var eventFramework = EventFramework.Instance();
+        return eventFramework == null
+            ? 0
+            : (nint)eventFramework->DirectorModule.ActiveContentDirector;
     }
 
     public static bool CanEnablePlugin(out List<string> reasons)
@@ -165,7 +167,7 @@ public unsafe static class Utils
         {
             foreach(var x in phase.MapEffects)
             {
-                MapEffect.Delegate(Utils.GetMapEffectModule(), (uint)x.a1, (ushort)x.a2, (ushort)x.a3);
+                P.Memory.ExecuteMapEffect(Utils.GetMapEffectModule(), (uint)x.a1, (ushort)x.a2, (ushort)x.a3);
             }
         }
         P.ApplyFestivals(phase.Festivals);

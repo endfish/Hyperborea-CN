@@ -2,7 +2,6 @@
 using ECommons.Configuration;
 using ECommons.ExcelServices;
 using ECommons.GameHelpers;
-using ECommons.Hooks;
 using ECommons.Opcodes;
 using ECommons.Reflection;
 using ECommons.SimpleGui;
@@ -168,13 +167,13 @@ public unsafe class DebugWindow: Window
             ImGui.InputInt("3", ref i3);
             if (ImGui.Button("执行"))
             {
-                MapEffect.Delegate(Utils.GetMapEffectModule(), (uint)i1, (ushort)i2, (ushort)i3);
+                P.Memory.ExecuteMapEffect(Utils.GetMapEffectModule(), (uint)i1, (ushort)i2, (ushort)i3);
             }
             if (ImGui.Button("执行 1 到 i1"))
             {
                 for (int i = 1; i <= i1; i++)
                 {
-                    MapEffect.Delegate(Utils.GetMapEffectModule(), (uint)i, (ushort)i2, (ushort)i3);
+                    P.Memory.ExecuteMapEffect(Utils.GetMapEffectModule(), (uint)i, (ushort)i2, (ushort)i3);
                 }
             }
         }

@@ -3,6 +3,7 @@ using Dalamud.Memory;
 using ECommons.ExcelServices;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Application.Network;
+using FFXIVClientStructs.FFXIV.Client.Game.InstanceContent;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Environment;
 using FFXIVClientStructs.FFXIV.Client.LayoutEngine;
 using FFXIVClientStructs.FFXIV.Client.Network;
@@ -46,6 +47,10 @@ public unsafe class Memory
     [EzHook("40 53 48 83 EC 20 48 8B 1D ?? ?? ?? ?? 48 85 DB 0F 84 ?? ?? ?? ?? 80 3D", false)]
     internal EzHook<IsFlightProhibited> IsFlightProhibitedHook;
 
+    internal delegate void ApplyMapEffect(ContentDirector* director, uint index, ushort state, ushort timelineIndex);
+    [EzHook("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 8B FA 41 0F B7 E8", true)]
+    internal EzHook<ApplyMapEffect> ApplyMapEffectHook;
+
     internal byte* ActiveScene;
 
     private static ushort HeartbeatOpcode;
@@ -79,6 +84,35 @@ public unsafe class Memory
             e.Log();
         }
         return IsFlightProhibitedHook.Original();
+    }
+
+    private void ApplyMapEffectDetour(ContentDirector* director, uint index, ushort state, ushort timelineIndex)
+    {
+        try
+        {
+            InternalLog.Debug($"Map effect: {index}, {state}, {timelineIndex}");
+        }
+        catch (Exception e)
+        {
+            e.Log();
+        }
+
+        ApplyMapEffectHook.Original(director, index, state, timelineIndex);
+    }
+
+    internal void ExecuteMapEffect(nint directorAddress, uint index, ushort state, ushort timelineIndex)
+    {
+        var director = (ContentDirector*)directorAddress;
+        if (director == null)
+        {
+            PluginLog.Warning("Map effect was not applied because no active content director is available.");
+            return;
+        }
+
+        if (ApplyMapEffectHook != null)
+            ApplyMapEffectHook.Original(director, index, state, timelineIndex);
+        else
+            director->ApplyMapEffect(index, state, timelineIndex);
     }
 
     private byte FinalizeInstanceContentDetour(nint a1, uint a2)
