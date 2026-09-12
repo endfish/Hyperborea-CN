@@ -132,7 +132,12 @@ public unsafe class CompassWindow : Window
             ImGui.PushFont(UiBuilder.IconFont);
             ImGuiEx.ButtonCheckbox("\uf05b", ref C.FastTeleport);
             ImGui.PopFont();
-            ImGuiEx.Tooltip("启用后可使用 CTRL + 点击，传送到鼠标指向的位置。"); 
+            ImGuiEx.Tooltip("启用后可使用 CTRL + 点击，传送到鼠标指向的位置。");
+            if (!C.EnableAdvancedUnsafeControls)
+            {
+                C.FastTeleport = false;
+                ImGui.EndDisabled();
+            }
 
             ImGui.SetNextItemWidth(200f);
             if(ImGui.BeginCombo("##mount", Utils.GetMountName(C.CurrentMount) ?? Strings.SelectMount))
@@ -167,6 +172,7 @@ public unsafe class CompassWindow : Window
 
             ImGui.SameLine();
             ImGui.PushFont(UiBuilder.IconFont);
+            if (!C.EnableAdvancedUnsafeControls) ImGui.BeginDisabled();
             ImGuiEx.ButtonCheckbox("\uf072", ref C.ForcedFlight);
             ImGui.PopFont();
             ImGuiEx.Tooltip("启用坐骑飞行，也允许未骑乘时使用类似坐骑的飞行。与穿模模式不兼容。");
@@ -185,7 +191,6 @@ public unsafe class CompassWindow : Window
             }
             if (!C.EnableAdvancedUnsafeControls)
             {
-                C.FastTeleport = false;
                 C.ForcedFlight = false;
                 P.Noclip = false;
                 ImGui.EndDisabled();
