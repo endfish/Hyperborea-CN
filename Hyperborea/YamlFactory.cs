@@ -20,6 +20,10 @@ public class YamlFactory : DefaultSerializationFactory
 
     public override string Serialize(object s, bool prettyPrint)
     {
-        return new SerializerBuilder().Build().Serialize(s);
+        return new SerializerBuilder()
+            .WithAttributeOverride<MapEffectInfo>(x => x.LegacySlot, new YamlIgnoreAttribute())
+            .WithAttributeOverride<MapEffectInfo>(x => x.LegacyState, new YamlIgnoreAttribute())
+            .WithAttributeOverride<MapEffectInfo>(x => x.LegacyTimelineOverride, new YamlIgnoreAttribute())
+            .Build().Serialize(s);
     }
 }

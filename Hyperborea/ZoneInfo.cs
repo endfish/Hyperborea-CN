@@ -22,9 +22,19 @@ public class PhaseInfo
 public class MapEffectInfo
 {
     [NonSerialized] internal string GUID = Guid.NewGuid().ToString();
-    public int a1;
-    public int a2;
-    public int a3;
+    public int Slot;
+    public int State;
+    public int TimelineOverride;
+
+    // Accept existing overrides and clipboard data; new saves use the named fields above.
+    [YamlDotNet.Serialization.YamlMember(Alias = "a1"), Newtonsoft.Json.JsonIgnore]
+    public int LegacySlot { get => Slot; set => Slot = value; }
+
+    [YamlDotNet.Serialization.YamlMember(Alias = "a2"), Newtonsoft.Json.JsonIgnore]
+    public int LegacyState { get => State; set => State = value; }
+
+    [YamlDotNet.Serialization.YamlMember(Alias = "a3"), Newtonsoft.Json.JsonIgnore]
+    public int LegacyTimelineOverride { get => TimelineOverride; set => TimelineOverride = value; }
 }
 
 [Serializable]

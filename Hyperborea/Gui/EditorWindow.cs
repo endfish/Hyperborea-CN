@@ -1,4 +1,4 @@
-﻿using Dalamud.Interface.Components;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using ECommons.Configuration;
 using ECommons.ExcelServices;
@@ -168,23 +168,95 @@ public unsafe class EditorWindow : Window
                             Safe(() => p.MapEffects = P.YamlFactory.Deserialize<List<MapEffectInfo>>(Paste()));
                         }
                         ImGuiEx.Tooltip("粘贴并覆盖这个阶段的地图效果。");
+                        var slots = MapEffectResolver.GetZoneSlots(TerrID);
                         foreach (var x in p.MapEffects)
                         {
                             ImGui.PushID(x.GUID);
-                            ImGui.SetNextItemWidth(100f);
-                            ImGui.InputInt($"##a1", ref x.a1);
+
+                            var isDupe = p.MapEffects.Count(y => y.Slot == x.Slot) > 1;
+                            if (isDupe)
+                            {
+                                ImGuiEx.Text(EColor.RedBright, "[槽位重复]");
+                                ImGuiEx.Tooltip("这个阶段中已有其他效果使用同一槽位，实际只会应用列表中最后一项。");
+                                ImGui.SameLine();
+                            }
+
+                            var curSlot = slots.FirstOrDefault(s => s.Slot == x.Slot);
+                            ImGui.SetNextItemWidth(180f);
+                            if (ImGui.BeginCombo("##slot", curSlot != null ? $"{x.Slot}: {curSlot.SgbName}" : $"槽位 {x.Slot}（未知）"))
+                            {
+                                foreach (var s in slots)
+                                {
+                                    if (s.Slot != x.Slot && p.MapEffects.Any(y => y.GUID != x.GUID && y.Slot == s.Slot)) continue;
+
+                                    if (ImGui.Selectable($"{s.Slot}: {s.SgbName}##slot{s.Slot}", x.Slot == s.Slot))
+                                    {
+                                        x.Slot = s.Slot;
+                                        x.State = 0;
+                                        x.TimelineOverride = 0;
+                                    }
+                                }
+                                ImGui.EndCombo();
+                            }
+                            ImGuiEx.Tooltip("选择要控制的地图效果槽位。");
                             ImGui.SameLine();
-                            ImGui.SetNextItemWidth(100f);
-                            ImGui.InputInt($"##a2", ref x.a2);
+
+                            var states = curSlot?.States ?? [];
+                            var curStateName = states.FirstOrDefault(st => st.State == (ushort)x.State).Name;
+                            ImGui.SetNextItemWidth(180f);
+                            if (ImGui.BeginCombo("##state", curStateName.NullWhenEmpty() != null ? $"{x.State}: {curStateName}" : $"状态 {x.State}"))
+                            {
+                                if (ImGui.Selectable("0（不操作）", x.State == 0)) x.State = 0;
+                                foreach (var (state, name) in states)
+                                {
+                                    if (ImGui.Selectable($"{state}: {name}##st{state}", x.State == state)) x.State = state;
+                                }
+                                ImGui.EndCombo();
+                            }
+                            ImGuiEx.Tooltip("设置该槽位的状态。默认情况下，播放的时间轴也会跟随这个状态。");
                             ImGui.SameLine();
-                            ImGui.SetNextItemWidth(100f);
-                            ImGui.InputInt($"##a3", ref x.a3);
+
+                            if (ImGuiEx.IconButton(FontAwesomeIcon.Cog))
+                            {
+                                ImGui.SetNextWindowPos(new Vector2(ImGui.GetItemRectMin().X, ImGui.GetItemRectMax().Y));
+                                ImGui.OpenPopup("##advTimeline");
+                            }
+                            ImGuiEx.Tooltip("高级：独立于状态，覆盖当前播放的时间轴。\n默认保持为 0。只有需要在同一槽位组合多个独立效果（例如火把和闸门），或触发过渡动画时才需要修改。");
+                            ImGui.SetNextWindowSize(new Vector2(280f, 0f), ImGuiCond.Appearing);
+                            if (ImGui.BeginPopup("##advTimeline"))
+                            {
+                                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + 260f);
+                                ImGuiEx.TextWrapped("选择当前播放或停止的时间轴。全部取消勾选时，时间轴跟随上方状态（默认设置）。");
+                                ImGui.PopTextWrapPos();
+                                if (ImGui.Selectable("恢复默认（跟随状态）")) x.TimelineOverride = 0;
+                                ImGui.Separator();
+                                foreach (var (state, name) in states)
+                                {
+                                    var on = ((ushort)x.TimelineOverride & state) != 0;
+                                    if (ImGui.Checkbox($"{state}: {name}##tl{state}", ref on))
+                                    {
+                                        x.TimelineOverride = on ? (x.TimelineOverride | state) : (x.TimelineOverride & ~state);
+                                    }
+                                }
+                                ImGui.EndPopup();
+                            }
+                            if (x.TimelineOverride != 0)
+                            {
+                                ImGui.SameLine();
+                                var curTimelineNames = states.Where(st => ((ushort)x.TimelineOverride & st.State) != 0).Select(st => st.Name).ToList();
+                                ImGuiEx.Text(EColor.YellowBright, curTimelineNames.Count > 0 ? string.Join(", ", curTimelineNames) : $"{x.TimelineOverride}");
+                                ImGuiEx.Tooltip("正在覆盖时间轴，不再跟随状态。");
+                            }
                             ImGui.SameLine();
                             if (ImGui.Button(Strings.Delete))
                             {
                                 new TickScheduler(() => p.MapEffects.RemoveAll(z => z.GUID == x.GUID));
                             }
                             ImGui.PopID();
+                        }
+                        if (slots.Count == 0)
+                        {
+                            ImGui.TextDisabled("当前区域没有找到地图效果槽位。");
                         }
                         ImGuiEx.TextV(Strings.Festivals);
                         var zoneFests = Utils.GetZoneFestivals(bg);
