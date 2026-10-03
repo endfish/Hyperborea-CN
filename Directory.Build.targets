@@ -1,0 +1,7 @@
+<Project>
+  <!-- ECommons sheet types use Lumina's ExcelPage. New client structs also
+       expose that name; keep the pinned submodule intact and disambiguate it. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'ECommons'">
+    <Using Include="Lumina.Excel.ExcelPage" Alias="ExcelPage" />
+  </ItemGroup>
+</Project>
