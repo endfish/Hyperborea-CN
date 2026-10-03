@@ -7,7 +7,7 @@
     "RepoUrl": "https://github.com/endfish/Hyperborea-CN",
     "IconUrl": "https://raw.githubusercontent.com/endfish/Hyperborea-CN/main/icon.png",
     "AcceptsFeedback": false,
-    "Changelog": "新增探索会话状态管理、异常恢复记录、坐标校验与安全还原流程；新增副本导览点及导航，高级移动控制改为显式启用；修复地图效果钩子签名，并支持从插件安装器打开主界面。",
+    "Changelog": "同步上游 1.0.1.1，更新区域数据、地图效果解析和 opcode；保留中文与国服配置兼容、探索会话恢复和副本导览；修复高级移动设置关闭时坐骑控制被错误禁用的问题。",
     "Tags": [
         "gpose",
         "exploration",
